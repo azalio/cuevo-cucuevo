@@ -1,0 +1,199 @@
+service: {
+    frontend: {
+        apiVersion: "v1"
+        kind:       "Service"
+        metadata: {
+            name: "frontend"
+            labels: {
+                app:  "guestbook"
+                tier: "frontend"
+            }
+        }
+        spec: {
+            type: "NodePort"
+            ports: [{
+                port: 80
+            }]
+            selector: {
+                app:  "guestbook"
+                tier: "frontend"
+            }
+        }
+    }
+    "redis-master": {
+        apiVersion: "v1"
+        kind:       "Service"
+        metadata: {
+            name: "redis-master"
+            labels: {
+                app:  "redis"
+                tier: "backend"
+                role: "master"
+            }
+        }
+        spec: {
+            ports: [{
+                port:       6379
+                targetPort: 6379
+            }]
+            selector: {
+                app:  "redis"
+                tier: "backend"
+                role: "master"
+            }
+        }
+    }
+    "redis-replica": {
+        apiVersion: "v1"
+        kind:       "Service"
+        metadata: {
+            name: "redis-replica"
+            labels: {
+                app:  "redis"
+                tier: "backend"
+                role: "replica"
+            }
+        }
+        spec: {
+            ports: [{
+                port: 6379
+            }]
+            selector: {
+                app:  "redis"
+                tier: "backend"
+                role: "replica"
+            }
+        }
+    }
+}
+deployment: {
+    frontend: {
+        apiVersion: "apps/v1"
+        kind:       "Deployment"
+        metadata: {
+            name: "frontend"
+        }
+        spec: {
+            selector: {
+                matchLabels: {
+                    app:  "guestbook"
+                    tier: "frontend"
+                }
+            }
+            replicas: 3
+            template: {
+                metadata: {
+                    labels: {
+                        app:  "guestbook"
+                        tier: "frontend"
+                    }
+                }
+                spec: {
+                    containers: [{
+                        name:  "php-redis"
+                        image: "gcr.io/google-samples/gb-frontend:v4"
+                        resources: {
+                            requests: {
+                                cpu:    "100m"
+                                memory: "100Mi"
+                            }
+                        }
+                        env: [{
+                            name:  "GET_HOSTS_FROM"
+                            value: "dns"
+                        }]
+                        ports: [{
+                            containerPort: 80
+                        }]
+                    }]
+                }
+            }
+        }
+    }
+    "redis-master": {
+        apiVersion: "apps/v1"
+        kind:       "Deployment"
+        metadata: {
+            name: "redis-master"
+        }
+        spec: {
+            selector: {
+                matchLabels: {
+                    app:  "redis"
+                    tier: "backend"
+                    role: "master"
+                }
+            }
+            replicas: 1
+            template: {
+                metadata: {
+                    labels: {
+                        app:  "redis"
+                        tier: "backend"
+                        role: "master"
+                    }
+                }
+                spec: {
+                    containers: [{
+                        name:  "master"
+                        image: "registry.k8s.io/redis:e2e"
+                        resources: {
+                            requests: {
+                                cpu:    "100m"
+                                memory: "256Mi"
+                            }
+                        }
+                        ports: [{
+                            containerPort: 6379
+                        }]
+                    }]
+                }
+            }
+        }
+    }
+    "redis-replica": {
+        apiVersion: "apps/v1"
+        kind:       "Deployment"
+        metadata: {
+            name: "redis-replica"
+        }
+        spec: {
+            selector: {
+                matchLabels: {
+                    app:  "redis"
+                    tier: "backend"
+                    role: "replica"
+                }
+            }
+            replicas: 2
+            template: {
+                metadata: {
+                    labels: {
+                        app:  "redis"
+                        tier: "backend"
+                        role: "replica"
+                    }
+                }
+                spec: {
+                    containers: [{
+                        name:  "replica"
+                        image: "gcr.io/google_samples/gb-redisslave:v1"
+                        resources: {
+                            requests: {
+                                cpu:    "100m"
+                                memory: "100Mi"
+                            }
+                        }
+                        env: [{
+                            name:  "GET_HOSTS_FROM"
+                            value: "dns"
+                        }]
+                        ports: [{
+                            containerPort: 6379
+                        }]
+                    }]
+                }
+            }
+        }
+    }
+}
